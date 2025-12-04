@@ -1,3 +1,7 @@
+Họ và tên: Nguyễn Công Hiếu
+MSSV: 22110124
+Ứng dụng Web cho Computer Vision
+
 # 🖼️ Digital Imaging Processing App (Streamlit)
 
 Ứng dụng web xử lý ảnh với Streamlit, triển khai các kỹ thuật nền tảng của Digital Image Processing: biến đổi cường độ, histogram, tương quan (NCC), lọc không gian, Fourier 1-D/2-D, PCA Face Detection, khôi phục ảnh (restoration), và hình thái học (morphology).
