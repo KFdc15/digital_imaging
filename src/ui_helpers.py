@@ -198,11 +198,23 @@ def setup_sidebar_controls(processing_category):
         if params['pca_use_uploaded_training']:
             st.sidebar.markdown("**Upload tập ảnh khuôn mặt để huấn luyện PCA**")
             files = st.sidebar.file_uploader(
-                "Training Face Images", type=['png', 'jpg', 'jpeg', 'bmp'], accept_multiple_files=True, key="pca_faces"
+                "Training Face Images", type=['png', 'jpg', 'jpeg', 'bmp', 'tif', 'tiff'], accept_multiple_files=True, key="pca_faces"
             )
             params['pca_training_images'] = files or []
         st.sidebar.caption("Sử dụng tham số mặc định cho PCA")
     
+    # SEGMENTATION
+    elif processing_category == "Segmentation":
+        params['seg_method'] = st.sidebar.selectbox(
+            "Method",
+            ["Global (Mean)", "Otsu", "K-Means"]
+        )
+        if params['seg_method'] == "K-Means":
+            params['seg_k'] = st.sidebar.slider("K (clusters)", 2, 8, 2, 1)
+            params['seg_output'] = st.sidebar.selectbox("Output", ["Binary (bright class)", "Label Map (colored)"])
+            params['seg_attempts'] = st.sidebar.slider("Attempts", 1, 20, 10, 1)
+            params['seg_seed'] = st.sidebar.number_input("Seed", value=0, step=1)
+
     # MORPHOLOGY
     elif processing_category == "Morphology":
         params['morph_operation'] = st.sidebar.selectbox(
@@ -235,10 +247,14 @@ def setup_sidebar_controls(processing_category):
             ]
         )
         if params['restoration_task'] == "Noise Models":
-            params['noise_type'] = st.sidebar.selectbox("Noise Type", ["Gaussian", "Salt & Pepper", "Periodic"])
+            params['noise_type'] = st.sidebar.selectbox("Noise Type", ["Gaussian", "Uniform", "Impulse", "Salt & Pepper", "Periodic"])
             if params['noise_type'] == "Gaussian":
                 params['gauss_mean'] = st.sidebar.slider("Mean", -0.1, 0.1, 0.0, 0.01)
                 params['gauss_var'] = st.sidebar.slider("Variance", 0.0, 0.05, 0.01, 0.005)
+            elif params['noise_type'] == "Uniform":
+                params['uni_amp'] = st.sidebar.slider("Uniform range ±A", 0, 100, 50, 5)
+            elif params['noise_type'] == "Impulse":
+                params['imp_amount'] = st.sidebar.slider("Amount", 0.0, 0.2, 0.05, 0.01)
             elif params['noise_type'] == "Salt & Pepper":
                 params['sp_amount'] = st.sidebar.slider("Amount", 0.0, 0.2, 0.02, 0.01)
             else:
@@ -246,10 +262,13 @@ def setup_sidebar_controls(processing_category):
                 params['per_fu'] = st.sidebar.slider("Freq U", 1, 50, 5, 1)
                 params['per_fv'] = st.sidebar.slider("Freq V", 1, 50, 5, 1)
         elif params['restoration_task'] == "Spatial Denoising":
-            params['denoise_method'] = st.sidebar.selectbox("Method", ["Median", "Gaussian", "Average"])
+            params['denoise_method'] = st.sidebar.selectbox("Method", ["Median", "Gaussian", "Average", "Min", "Max", "Midpoint", "Alpha-Trimmed Mean"])
             params['denoise_kernel'] = st.sidebar.slider("Kernel Size", 3, 15, 5, 2)
             if params['denoise_method'] == "Gaussian":
                 params['denoise_sigma'] = st.sidebar.slider("Sigma", 0.1, 5.0, 1.0, 0.1)
+            if params['denoise_method'] == "Alpha-Trimmed Mean":
+                max_d = max(0, params['denoise_kernel'] * params['denoise_kernel'] - 1)
+                params['alpha_d'] = st.sidebar.slider("Trim (d)", 0, max_d, min(8, max_d), 2)
         elif params['restoration_task'] == "Periodic Noise Reduction":
             params['notch_k'] = st.sidebar.slider("Top-K peaks", 2, 100, 10, 2)
             params['notch_radius'] = st.sidebar.slider("Notch radius", 1, 15, 3, 1)

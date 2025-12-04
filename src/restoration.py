@@ -21,6 +21,18 @@ def add_gaussian_noise(image, mean=0.0, var=0.01):
         return np.clip(out, 0, 255).astype(np.uint8)
 
 
+def add_uniform_noise(image, amp=50.0):
+    img = image.astype(np.float32)
+    if img.ndim == 2:
+        noise = np.random.uniform(-amp, amp, img.shape).astype(np.float32)
+        out = img + noise
+        return np.clip(out, 0, 255).astype(np.uint8)
+    else:
+        noise = np.random.uniform(-amp, amp, img.shape).astype(np.float32)
+        out = img + noise
+        return np.clip(out, 0, 255).astype(np.uint8)
+
+
 def add_salt_pepper_noise(image, amount=0.02):
     out = image.copy()
     num_salt = int(np.ceil(amount * out.size * 0.5))
@@ -40,6 +52,19 @@ def add_salt_pepper_noise(image, amount=0.02):
     return out
 
 
+def add_impulse_noise(image, amount=0.05):
+    out = image.copy()
+    num = int(np.ceil(amount * out.shape[0] * out.shape[1]))
+    ys = np.random.randint(0, out.shape[0], num)
+    xs = np.random.randint(0, out.shape[1], num)
+    values = np.random.choice([0, 255], size=num)
+    if out.ndim == 2:
+        out[ys, xs] = values
+    else:
+        out[ys, xs, :] = values[:, None]
+    return out
+
+
 def add_periodic_noise(image, amplitude=30.0, freq_u=5, freq_v=5):
     gray = to_gray(image).astype(np.float32)
     H, W = gray.shape
@@ -51,17 +76,57 @@ def add_periodic_noise(image, amplitude=30.0, freq_u=5, freq_v=5):
 
 
 # SPATIAL DENOISING
-def spatial_denoise(image, method="Median", kernel_size=5, sigma=1.0):
+def spatial_denoise(image, method="Median", kernel_size=5, sigma=1.0, alpha_d=0):
+    k = int(kernel_size) | 1
     if method == "Median":
-        return cv2.medianBlur(image, int(kernel_size) | 1)
+        return cv2.medianBlur(image, k)
     elif method == "Gaussian":
-        k = int(kernel_size) | 1
         return cv2.GaussianBlur(image, (k, k), sigma)
-    else:
-        # Average
-        k = int(kernel_size) | 1
+    elif method == "Average":
         kernel = np.ones((k, k), np.float32) / (k * k)
         return cv2.filter2D(image, -1, kernel)
+    elif method == "Min":
+        kernel = np.ones((k, k), np.uint8)
+        return cv2.erode(image, kernel, iterations=1)
+    elif method == "Max":
+        kernel = np.ones((k, k), np.uint8)
+        return cv2.dilate(image, kernel, iterations=1)
+    elif method == "Midpoint":
+        kernel = np.ones((k, k), np.uint8)
+        min_img = cv2.erode(image, kernel, iterations=1)
+        max_img = cv2.dilate(image, kernel, iterations=1)
+        mid = ((min_img.astype(np.float32) + max_img.astype(np.float32)) * 0.5)
+        return np.clip(mid, 0, 255).astype(np.uint8)
+    elif method == "Alpha-Trimmed Mean":
+        d = int(alpha_d)
+        d = max(0, min(d, k * k - 1))
+        if image.ndim == 2:
+            return alpha_trimmed_mean_filter(image, k, d)
+        else:
+            channels = []
+            for c in range(image.shape[2]):
+                ch = alpha_trimmed_mean_filter(image[:, :, c], k, d)
+                channels.append(ch)
+            return np.stack(channels, axis=2)
+    else:
+        return image
+
+
+def alpha_trimmed_mean_filter(img, ksize, d):
+    pad = ksize // 2
+    padded = cv2.copyMakeBorder(img, pad, pad, pad, pad, cv2.BORDER_REFLECT)
+    out = np.zeros_like(img, dtype=np.uint8)
+    H, W = img.shape[:2]
+    for i in range(H):
+        for j in range(W):
+            window = padded[i:i+ksize, j:j+ksize].astype(np.float32).ravel()
+            window.sort()
+            if d > 0:
+                trim = d // 2
+                window = window[trim:len(window)-trim]
+            val = np.mean(window)
+            out[i, j] = np.clip(val, 0, 255)
+    return out
 
 
 # PERIODIC NOISE REDUCTION (AUTO NOTCH)

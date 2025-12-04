@@ -25,13 +25,16 @@ from filtering import (
 from fourier import fourier_1d, fourier_2d
 from pca_face import build_pca_model, detect_faces_pca, load_pca_model, haar_detect_faces
 from restoration import (
-    add_gaussian_noise, add_salt_pepper_noise, add_periodic_noise,
+    add_gaussian_noise, add_uniform_noise, add_impulse_noise, add_salt_pepper_noise, add_periodic_noise,
     spatial_denoise, periodic_noise_reduction,
     apply_linear_degradation, inverse_filtering
 )
 from morphology import (
     morph_erosion, morph_dilation, morph_open, morph_close,
     morph_gradient, morph_tophat, morph_blackhat
+)
+from segmentation import (
+    global_threshold_mean, otsu_threshold, kmeans_segmentation, colorize_labels
 )
 
 
@@ -54,12 +57,12 @@ def main():
          "Contrast Stretching", "Piecewise Linear", "Gray-level Slicing", 
          "Bit-plane Slicing", "Histogram Equalization", "Histogram Matching",
             "Correlation", "Convolution", "Smoothing Linear Filter", "Median Filter", "Sharpening",
-                "Spatial Filter", "Fourier Transform", "PCA Face Detection", "Morphology", "Restoration"]
+                    "Spatial Filter", "Fourier Transform", "PCA Face Detection", "Morphology", "Segmentation", "Restoration"]
     )
     
     params = setup_sidebar_controls(processing_category)
     
-    uploaded_file = st.file_uploader("Chọn ảnh để xử lý", type=['png', 'jpg', 'jpeg', 'bmp'])
+    uploaded_file = st.file_uploader("Chọn ảnh để xử lý", type=['png', 'jpg', 'jpeg', 'bmp', 'tif', 'tiff'])
     
     if uploaded_file is not None:
         original_image = load_image(uploaded_file)
@@ -263,6 +266,28 @@ def main():
             else:
                 processed_image = morph_blackhat(original_image, shape=shape, ksize=ksize)
 
+        # SEGMENTATION
+        elif processing_category == "Segmentation":
+            method = params.get('seg_method', 'Global (Mean)')
+            if method == "Global (Mean)":
+                processed_image = global_threshold_mean(original_image)
+            elif method == "Otsu":
+                processed_image = otsu_threshold(original_image)
+            else:  # K-Means
+                k = int(params.get('seg_k', 2))
+                attempts = int(params.get('seg_attempts', 10))
+                seed = int(params.get('seg_seed', 0))
+                out_mode = params.get('seg_output', 'Binary (bright class)')
+                if out_mode.startswith('Binary'):
+                    processed_image = kmeans_segmentation(
+                        original_image, k=k, attempts=attempts, seed=seed, output="binary-max"
+                    )
+                else:
+                    labels = kmeans_segmentation(
+                        original_image, k=k, attempts=attempts, seed=seed, output="labels"
+                    )
+                    processed_image = colorize_labels(labels, k=k)
+
         # RESTORATION
         elif processing_category == "Restoration":
             task = params.get('restoration_task')
@@ -273,6 +298,16 @@ def main():
                         original_image,
                         mean=float(params.get('gauss_mean', 0.0)),
                         var=float(params.get('gauss_var', 0.01))
+                    )
+                elif ntype == "Uniform":
+                    processed_image = add_uniform_noise(
+                        original_image,
+                        amp=float(params.get('uni_amp', 50.0))
+                    )
+                elif ntype == "Impulse":
+                    processed_image = add_impulse_noise(
+                        original_image,
+                        amount=float(params.get('imp_amount', 0.05))
                     )
                 elif ntype == "Salt & Pepper":
                     processed_image = add_salt_pepper_noise(
@@ -291,7 +326,8 @@ def main():
                     original_image,
                     method=params.get('denoise_method', 'Median'),
                     kernel_size=int(params.get('denoise_kernel', 5)),
-                    sigma=float(params.get('denoise_sigma', 1.0))
+                    sigma=float(params.get('denoise_sigma', 1.0)),
+                    alpha_d=int(params.get('alpha_d', 0))
                 )
             elif task == "Periodic Noise Reduction":
                 processed_image = periodic_noise_reduction(
@@ -428,8 +464,9 @@ def main():
             - **Spatial Filter**: Các bộ lọc không gian (Smoothing, Order-Statistic, Sharpening, High-Pass)
             - **Fourier Transform**: Phân tích phổ 1-D (hàng/cột) và 2-D
             - **PCA Face Detection**: Dò khuôn mặt bằng PCA (cửa sổ trượt + lỗi tái tạo)
+            - **Segmentation**: Global (ngưỡng theo mean), Otsu, K-Means (mask hoặc bản đồ nhãn màu)
             - **Morphology**: Co, giãn, mở, đóng, gradient, top-hat, black-hat với kernel Rect/Ellipse/Cross
-            - **Restoration**: Nhiễu/khôi phục (Gaussian, Salt & Pepper, Periodic); Denoising; Notch filtering; Mô phỏng suy giảm Gaussian/Motion; Inverse filtering
+            - **Restoration**: Nhiễu/khôi phục (Gaussian/Uniform/Impulse/Salt & Pepper/Periodic); Denoising (Median/Gaussian/Average/Min/Max/Midpoint/Alpha-Trimmed Mean); Notch filtering; Mô phỏng suy giảm Gaussian/Motion; Inverse filtering
             """)
 
 
