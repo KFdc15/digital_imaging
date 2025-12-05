@@ -4,7 +4,7 @@ MSSV: 22110124
 
 # 🖼️ Digital Imaging Processing App (Streamlit)
 
-Ứng dụng web xử lý ảnh với Streamlit, triển khai các kỹ thuật nền tảng của Digital Image Processing: biến đổi cường độ, histogram, tương quan (NCC), lọc không gian, Fourier 1-D/2-D, PCA Face Detection, khôi phục ảnh (restoration), và hình thái học (morphology).
+Ứng dụng web xử lý ảnh với Streamlit, triển khai các kỹ thuật nền tảng của Digital Image Processing: biến đổi cường độ, histogram, tương quan (NCC), lọc không gian, Fourier 1-D/2-D, PCA Face Detection, khôi phục ảnh (restoration), và hình thái học (morphology), segmentaion.
 
 ---
 
@@ -71,8 +71,9 @@ digital_imaging/
 		├── filtering.py           # Convolution & các bộ lọc không gian
 		├── fourier.py             # Fourier 1-D/2-D
 		├── pca_face.py            # PCA training/detection + Haar fallback
-		├── restoration.py         # Noise models, denoise, periodic reduction, inverse
-		├── morphology.py          # Erosion, dilation, opening, closing, ...
+		├── restoration.py         # Noise models, denoise (Median/Average/Gaussian/Min/Max/Midpoint/Alpha-Trimmed), periodic reduction, inverse
+		├── morphology.py          # Erosion, dilation, opening, closing, gradient, top-hat, black-hat
+		├── segmentation.py        # Segmentation: Global (Mean), Otsu, K-Means
 		└── ui_helpers.py          # Các control trong sidebar
 ```
 
@@ -97,7 +98,7 @@ python -m streamlit run app.py --server.port 8502
 
 ## 🧭 Hướng dẫn sử dụng nhanh
 
-- Upload ảnh (PNG/JPG/JPEG/BMP) ở khu vực trung tâm.
+- Upload ảnh (PNG/JPG/JPEG/BMP/TIF/TIFF) ở khu vực trung tâm.
 - Chọn “Chọn loại xử lý” trong sidebar và điều chỉnh tham số.
 - So sánh ảnh gốc và ảnh đã xử lý ở hai cột.
 - Có thể bật Histogram cho ảnh gốc/ảnh xử lý.
@@ -148,8 +149,8 @@ Kết quả: hiển thị vùng tương quan cao; có thể xem mask đã trích
 - Kết quả: khung phát hiện và đếm số vùng.
 
 ### 7) Restoration (Khôi phục/Mô phỏng suy giảm)
-- Noise Models: Gaussian (mean/var), Salt & Pepper (amount), Periodic (amplitude, tần số u/v).
-- Spatial Denoising: Median/Gaussian/Average (kernel, sigma).
+- Noise Models: Gaussian (mean/var), Uniform (±A), Impulse (amount), Salt & Pepper (amount), Periodic (amplitude, tần số u/v).
+- Spatial Denoising: Median/Gaussian/Average (kernel, sigma), Min/Max, Midpoint, Alpha-Trimmed Mean (tham số d).
 - Periodic Noise Reduction: tự phát hiện đỉnh nhiễu theo phổ và tạo notch filter (Top-K, bán kính notch).
 - Linear Degradation (simulate): Gaussian blur (sigma) hoặc Motion blur (length/angle).
 - Inverse Filtering: lọc nghịch có điều chuẩn (epsilon) với PSF Gaussian/Motion.
@@ -157,6 +158,11 @@ Kết quả: hiển thị vùng tương quan cao; có thể xem mask đã trích
 ### 8) Morphology
 - Erosion, Dilation, Opening, Closing, Gradient, Top-hat, Black-hat.
 - Kernel Shape: Rect/Ellipse/Cross, Kernel Size: lẻ (3–31), Iterations cho các phép cần lặp.
+
+### 9) Segmentation
+- Global (Mean) thresholding
+- Otsu thresholding
+- K-Means (K clusters): xuất Binary (bright class) hoặc Label Map (colored)
 
 ---
 
